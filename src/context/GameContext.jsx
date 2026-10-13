@@ -1,12 +1,53 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getCountries } from '../services/countriesnowServices'
 
-const GameContext = createContext()
+const defaultGameContext = {
+    countries: [],
+    currentCountry: null,
+    score: 0,
+    timeLeft: 30,
+    isTimeUp: false,
+    guess: () => {},
+    nextCountry: () => {},
+    continueRound: () => {},
+    resetScore: () => {}
+}
+
+const GameContext = createContext(defaultGameContext)
+const TIME_LIMIT = 30
 
 export const GameProvider = ({ children }) => {
     const [countries, setCountries] = useState([])
     const [currentCountry, setCurrentCountry] = useState(null)
     const [score, setScore] = useState(0)
+    const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
+    const [isTimeUp, setIsTimeUp] = useState(false)
+
+    const getRandomCountry = useCallback((excludeName = '') => {
+        if (countries.length === 0) return null
+
+        const availableCountries = countries.filter(
+            (country) => country.name.toLowerCase() !== excludeName.toLowerCase()
+        )
+
+        const pool = availableCountries.length > 0 ? availableCountries : countries
+
+        return pool[Math.floor(Math.random() * pool.length)]
+    }, [countries])
+
+    const nextCountry = useCallback(() => {
+        const randomCountry = getRandomCountry(currentCountry?.name ?? '')
+
+        if (!randomCountry) return
+
+        setCurrentCountry(randomCountry)
+        setTimeLeft(TIME_LIMIT)
+        setIsTimeUp(false)
+    }, [currentCountry?.name, getRandomCountry])
+
+    const continueRound = useCallback(() => {
+        nextCountry()
+    }, [nextCountry])
 
     useEffect(() => {
         const loadCountries = async () => {
@@ -15,10 +56,11 @@ export const GameProvider = ({ children }) => {
 
                 setCountries(data)
 
-                const randomCountry =
-                    data[Math.floor(Math.random() * data.length)]
+                const randomCountry = data[Math.floor(Math.random() * data.length)]
 
                 setCurrentCountry(randomCountry)
+                setTimeLeft(TIME_LIMIT)
+                setIsTimeUp(false)
             } catch (error) {
                 console.error('Error al cargar los países:', error)
             }
@@ -27,17 +69,15 @@ export const GameProvider = ({ children }) => {
         loadCountries()
     }, [])
 
-    const nextCountry = () => {
-        const randomCountry =
-            countries[Math.floor(Math.random() * countries.length)]
-
-        setCurrentCountry(randomCountry)
-    }
-
     const guess = (answer) => {
         if (!currentCountry) return
+        if (isTimeUp) return
 
-        if (answer.toLowerCase() === currentCountry.name.toLowerCase()) {
+        const normalizedAnswer = answer.trim().toLowerCase()
+
+        if (!normalizedAnswer) return
+
+        if (normalizedAnswer === currentCountry.name.toLowerCase()) {
             setScore(prevScore => prevScore + 10)
             nextCountry()
         } else {
@@ -49,14 +89,32 @@ export const GameProvider = ({ children }) => {
         setScore(0)
     }
 
+    useEffect(() => {
+        if (!currentCountry || countries.length === 0 || isTimeUp) return
+
+        if (timeLeft <= 0) {
+            setIsTimeUp(true)
+            return
+        }
+
+        const intervalId = setInterval(() => {
+            setTimeLeft(prevTime => prevTime - 1)
+        }, 1000)
+
+        return () => clearInterval(intervalId)
+    }, [countries.length, currentCountry, isTimeUp, timeLeft])
+
     return (
         <GameContext.Provider
             value={{
                 countries,
                 currentCountry,
                 score,
+                timeLeft,
+                isTimeUp,
                 guess,
                 nextCountry,
+                continueRound,
                 resetScore
             }}
         >
@@ -66,5 +124,5 @@ export const GameProvider = ({ children }) => {
 }
 
 export const useGameContext = () => {
-    return useContext(GameContext)
+    return useContext(GameContext) ?? defaultGameContext
 }
