@@ -7,14 +7,18 @@ const defaultGameContext = {
     score: 0,
     timeLeft: 15,
     isTimeUp: false,
+    revealedHints: [],
+    hintsLeft: 0,
     guess: () => {},
     nextCountry: () => {},
     continueRound: () => {},
-    resetScore: () => {}
+    resetScore: () => {},
+    requestHint: () => {}
 }
 
 const GameContext = createContext(defaultGameContext)
 const TIME_LIMIT = 15
+const HINT_PENALTY = 2
 
 export const GameProvider = ({ children }) => {
     const [countries, setCountries] = useState([])
@@ -22,6 +26,16 @@ export const GameProvider = ({ children }) => {
     const [score, setScore] = useState(0)
     const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
     const [isTimeUp, setIsTimeUp] = useState(false)
+    const [revealedHints, setRevealedHints] = useState([])
+
+    const letterIndexes = currentCountry
+        ? Array.from(currentCountry.name)
+              .map((char, index) => (/\p{L}/u.test(char) ? index : -1))
+              .filter((index) => index !== -1)
+        : []
+
+    const hiddenLetters = letterIndexes.filter((index) => !revealedHints.includes(index))
+    const hintsLeft = Math.max(0, hiddenLetters.length - 1)
 
     const getRandomCountry = useCallback((excludeName = '') => {
         if (countries.length === 0) return null
@@ -43,6 +57,7 @@ export const GameProvider = ({ children }) => {
         setCurrentCountry(randomCountry)
         setTimeLeft(TIME_LIMIT)
         setIsTimeUp(false)
+        setRevealedHints([])
     }, [currentCountry?.name, getRandomCountry])
 
     const continueRound = useCallback(() => {
@@ -61,6 +76,7 @@ export const GameProvider = ({ children }) => {
                 setCurrentCountry(randomCountry)
                 setTimeLeft(TIME_LIMIT)
                 setIsTimeUp(false)
+                setRevealedHints([])
             } catch (error) {
                 console.error('Error al cargar los países:', error)
             }
@@ -78,7 +94,7 @@ export const GameProvider = ({ children }) => {
         if (!normalizedAnswer) return
 
         if (normalizedAnswer === currentCountry.name.toLowerCase()) {
-            setScore(prevScore => prevScore + 10)
+            setScore(prevScore => prevScore + 10 + timeLeft)
             nextCountry()
         } else {
             setScore(prevScore => prevScore - 1)
@@ -87,6 +103,15 @@ export const GameProvider = ({ children }) => {
 
     const resetScore = () => {
         setScore(0)
+    }
+
+    const requestHint = () => {
+        if (!currentCountry || isTimeUp || hintsLeft === 0) return
+
+        const randomIndex = hiddenLetters[Math.floor(Math.random() * hiddenLetters.length)]
+
+        setRevealedHints(prev => [...prev, randomIndex])
+        setTimeLeft(prevTime => Math.max(0, prevTime - HINT_PENALTY))
     }
 
     useEffect(() => {
@@ -112,10 +137,13 @@ export const GameProvider = ({ children }) => {
                 score,
                 timeLeft,
                 isTimeUp,
+                revealedHints,
+                hintsLeft,
                 guess,
                 nextCountry,
                 continueRound,
-                resetScore
+                resetScore,
+                requestHint
             }}
         >
             {children}
