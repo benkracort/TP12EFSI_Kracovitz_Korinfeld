@@ -1,8 +1,8 @@
 import { useGameContext } from '../context/GameContext'
-
+ 
 const ScoreBoard = () => {
 	const { score } = useGameContext()
-
+ 
 	return (
 		<section className="scoreboard">
 			<p className="scoreboard__title">Puntaje</p>
@@ -10,5 +10,6 @@ const ScoreBoard = () => {
 		</section>
 	)
 }
-
+ 
 export default ScoreBoard
+	

@@ -5,7 +5,7 @@ const defaultGameContext = {
     countries: [],
     currentCountry: null,
     score: 0,
-    timeLeft: 30,
+    timeLeft: 15,
     isTimeUp: false,
     guess: () => {},
     nextCountry: () => {},
@@ -14,7 +14,7 @@ const defaultGameContext = {
 }
 
 const GameContext = createContext(defaultGameContext)
-const TIME_LIMIT = 30
+const TIME_LIMIT = 15
 
 export const GameProvider = ({ children }) => {
     const [countries, setCountries] = useState([])
